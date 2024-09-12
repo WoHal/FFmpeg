@@ -28,6 +28,7 @@
 *_g
 \#*
 .\#*
+.vscode
 /.config
 /.version
 /ffmpeg

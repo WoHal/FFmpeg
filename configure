@@ -1855,6 +1855,7 @@ EXTERNAL_AUTODETECT_LIBRARY_LIST="
     sndio
     xlib
     zlib
+    libsmb2
 "
 
 EXTERNAL_LIBRARY_GPL_LIST="
@@ -3800,6 +3801,7 @@ librtmps_protocol_deps="librtmp"
 librtmpt_protocol_deps="librtmp"
 librtmpte_protocol_deps="librtmp"
 libsmbclient_protocol_deps="libsmbclient gplv3"
+libsmb2_protocol_deps="libsmb2"
 libsrt_protocol_deps="libsrt"
 libsrt_protocol_select="network"
 libssh_protocol_deps="libssh"
@@ -6958,6 +6960,8 @@ enabled libshaderc        && require_pkg_config spirv_compiler "shaderc >= 2019.
 enabled libshine          && require_pkg_config libshine shine shine/layer3.h shine_encode_buffer
 enabled libsmbclient      && { check_pkg_config libsmbclient smbclient libsmbclient.h smbc_init ||
                                require libsmbclient libsmbclient.h smbc_init -lsmbclient; }
+enabled libsmb2           && { check_pkg_config libsmb2 libsmb2 "stdio.h stdlib.h time.h smb2/smb2.h smb2/libsmb2.h" smb2_init_context ||
+                               require libsmb2 libsmb2 "stdio.h stdlib.h time.h smb2/smb2.h smb2/libsmb2.h" smb2_init_context -lsmb2; }
 enabled libsnappy         && require libsnappy snappy-c.h snappy_compress -lsnappy -lstdc++
 enabled libsoxr           && require libsoxr soxr.h soxr_create -lsoxr
 enabled libssh            && require_pkg_config libssh "libssh >= 0.6.0" libssh/sftp.h sftp_init
