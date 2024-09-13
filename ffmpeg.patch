@@ -1,0 +1,91 @@
+diff --git a/.gitignore b/.gitignore
+index e810d11107..f62d8a73d7 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -28,6 +28,7 @@
+ *_g
+ \#*
+ .\#*
++.vscode
+ /.config
+ /.version
+ /ffmpeg
+diff --git a/configure b/configure
+index b28221f258..1c420295c8 100755
+--- a/configure
++++ b/configure
+@@ -195,6 +195,7 @@ External library support:
+   Also note that the following help text describes the purpose of the libraries
+   themselves, not all their features will necessarily be usable by FFmpeg.
+ 
++  --disable-libsmb2        disable libsmb2 support [autodetect]
+   --disable-alsa           disable ALSA support [autodetect]
+   --disable-appkit         disable Apple AppKit framework [autodetect]
+   --disable-avfoundation   disable Apple AVFoundation framework [autodetect]
+@@ -1855,6 +1856,7 @@ EXTERNAL_AUTODETECT_LIBRARY_LIST="
+     sndio
+     xlib
+     zlib
++    libsmb2
+ "
+ 
+ EXTERNAL_LIBRARY_GPL_LIST="
+@@ -3800,6 +3802,7 @@ librtmps_protocol_deps="librtmp"
+ librtmpt_protocol_deps="librtmp"
+ librtmpte_protocol_deps="librtmp"
+ libsmbclient_protocol_deps="libsmbclient gplv3"
++libsmb2_protocol_deps="libsmb2"
+ libsrt_protocol_deps="libsrt"
+ libsrt_protocol_select="network"
+ libssh_protocol_deps="libssh"
+@@ -6958,6 +6961,8 @@ enabled libshaderc        && require_pkg_config spirv_compiler "shaderc >= 2019.
+ enabled libshine          && require_pkg_config libshine shine shine/layer3.h shine_encode_buffer
+ enabled libsmbclient      && { check_pkg_config libsmbclient smbclient libsmbclient.h smbc_init ||
+                                require libsmbclient libsmbclient.h smbc_init -lsmbclient; }
++enabled libsmb2           && { check_pkg_config libsmb2 libsmb2 "stdio.h stdlib.h time.h smb2/smb2.h smb2/libsmb2.h" smb2_init_context ||
++                               require libsmb2 libsmb2 "stdio.h stdlib.h time.h smb2/smb2.h smb2/libsmb2.h" smb2_init_context -lsmb2; }
+ enabled libsnappy         && require libsnappy snappy-c.h snappy_compress -lsnappy -lstdc++
+ enabled libsoxr           && require libsoxr soxr.h soxr_create -lsoxr
+ enabled libssh            && require_pkg_config libssh "libssh >= 0.6.0" libssh/sftp.h sftp_init
+diff --git a/libavcodec/videotoolbox.c b/libavcodec/videotoolbox.c
+index 3dd804bb0c..954ba9ce60 100644
+--- a/libavcodec/videotoolbox.c
++++ b/libavcodec/videotoolbox.c
+@@ -787,11 +787,7 @@ static CFDictionaryRef videotoolbox_buffer_attributes_create(int width,
+     CFDictionarySetValue(buffer_attributes, kCVPixelBufferIOSurfacePropertiesKey, io_surface_properties);
+     CFDictionarySetValue(buffer_attributes, kCVPixelBufferWidthKey, w);
+     CFDictionarySetValue(buffer_attributes, kCVPixelBufferHeightKey, h);
+-#if TARGET_OS_IPHONE
+-    CFDictionarySetValue(buffer_attributes, kCVPixelBufferOpenGLESCompatibilityKey, kCFBooleanTrue);
+-#else
+-    CFDictionarySetValue(buffer_attributes, kCVPixelBufferIOSurfaceOpenGLTextureCompatibilityKey, kCFBooleanTrue);
+-#endif
++    CFDictionarySetValue(buffer_attributes, kCVPixelBufferMetalCompatibilityKey, kCFBooleanTrue);
+ 
+     CFRelease(io_surface_properties);
+     CFRelease(cv_pix_fmt);
+diff --git a/libavformat/Makefile b/libavformat/Makefile
+index 7ca68a7036..90a909da35 100644
+--- a/libavformat/Makefile
++++ b/libavformat/Makefile
+@@ -721,6 +721,7 @@ OBJS-$(CONFIG_LIBRTMPS_PROTOCOL)         += librtmp.o
+ OBJS-$(CONFIG_LIBRTMPT_PROTOCOL)         += librtmp.o
+ OBJS-$(CONFIG_LIBRTMPTE_PROTOCOL)        += librtmp.o
+ OBJS-$(CONFIG_LIBSMBCLIENT_PROTOCOL)     += libsmbclient.o
++OBJS-$(CONFIG_LIBSMB2_PROTOCOL)          += libsmb2.o
+ OBJS-$(CONFIG_LIBSRT_PROTOCOL)           += libsrt.o urldecode.o
+ OBJS-$(CONFIG_LIBSSH_PROTOCOL)           += libssh.o
+ OBJS-$(CONFIG_LIBZMQ_PROTOCOL)           += libzmq.o
+diff --git a/libavformat/aviobuf.c b/libavformat/aviobuf.c
+index 6a74c1ce68..ae32d5df9c 100644
+--- a/libavformat/aviobuf.c
++++ b/libavformat/aviobuf.c
+@@ -33,7 +33,7 @@
+ #include "internal.h"
+ #include <stdarg.h>
+ 
+-#define IO_BUFFER_SIZE 32768
++#define IO_BUFFER_SIZE 32768*32
+ 
+ /**
+  * Do seeks within this distance ahead of the current buffer by skipping
